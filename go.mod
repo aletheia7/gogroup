@@ -1,3 +1,3 @@
-module github.com/aletheia7/gogroup/v2
+module github.com/aletheia7/gogroup
 
-go 1.15
+go 1.17
