@@ -1,4 +1,4 @@
-[![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://pkg.go.dev/github.com/aletheia7/gogroup)
+[![Go Reference](https://pkg.go.dev/badge/github.com/aletheia7/gogroup.svg)](https://pkg.go.dev/github.com/aletheia7/gogroup)
 
 #### Documentation
 
