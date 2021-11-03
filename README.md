@@ -2,15 +2,17 @@
 
 #### Documentation
 
-gogroup allows running a group of goroutines. The gogroup.Group  waits for
+gogroup allows running a group of goroutines. The gogroup.Group waits for
 all goroutines to end. All goroutines in the group are signaled through a
 context to end gracefully when one goroutine ends.
 
 Use Group.Cancel() to cancel all gorountines gracefully.
 
+Use <ctrl-c> to cancel all goroutines gracefully.
+
 Group.Interrupted indicates if an os.Signal was received.
 
-Group.Err() indicates if an error was set by a goroutine.
+Group.Get_err() indicates if an error was set by a goroutine.
 
 #### Example
 
@@ -19,58 +21,63 @@ package main
 
 import (
 	"fmt"
-	"github.com/aletheia7/gogroup"
 	"log"
 	"time"
+
+	"github.com/aletheia7/gogroup"
 )
+
+var gg = gogroup.New()
 
 func main() {
 	log.SetFlags(log.Lshortfile)
-	// ctrl-c to end gracefully or
-	// let Object.Run count to 8 for a graceful error
-	g := gogroup.New(gogroup.Add_signals(gogroup.Unix))
-	// Register()/Unregister() example
-	go do(g)
-	// Grouper Interface
-	g.Go(&Object{})
-	defer log.Println("wait done:", g.Wait())
-	<-g.Context.Done()
+	go do_1()
+	go do_2()
+	defer log.Println("main done")
+	// gg.Wait() will wait for all goroutines
+	// <ctrl-c> will cancel all goroutines
+	gg.Wait()
+	log.Printf("main error: %v, interrupted: %v\n", gg.Get_err(), gg.Interrupted)
 }
 
-func do(g *gogroup.Group) {
-	defer log.Println("do done")
-	key := g.Register()
-	defer g.Unregister(key)
-	for {
+func do_1() {
+	defer log.Println("do_1: done")
+	key := gg.Register()
+	defer gg.Unregister(key)
+	gg.Set_err(fmt.Errorf("do_1 error"))
+	child_gg := gogroup.New(gogroup.With_cancel(gg))
+	// parent gg.Cancel() will call child_gg.Cancel() to cleanup hierarchy
+	<-child_gg.Done()
+	log.Println("do_1 child_gg.Cancel() called by parent")
+	<-gg.Done()
+}
+
+func do_2() {
+	defer log.Println("do_2: done")
+	key := gg.Register()
+	defer gg.Unregister(key)
+	for ct, total := 1, 2; ct <= total; ct++ {
 		select {
-		case <-g.Done():
-			return
 		case <-time.After(time.Second):
-			log.Println("do")
-		}
-	}
-}
-
-type Object struct{}
-
-func (o *Object) Run(g *gogroup.Group) {
-	defer log.Println("Object.Run done")
-	ct := 0
-	total := 8
-	for {
-		select {
-		case <-g.Done():
+			log.Println("do_2: tick", ct, "of", total)
+		case <-gg.Done():
 			return
-		case t := <-time.After(time.Second):
-			ct++
-			log.Println("run:", ct, "of", total, t.Format("3:04:05 pm"))
-			if ct == total {
-				g.Set_err(fmt.Errorf("some err"))
-				return
-			}
 		}
 	}
+	// Set_err() was called earlier in do_1().
+	// It will be ignored.
+	gg.Set_err(fmt.Errorf("do_2 error"))
 }
+```
+#### Output
+```
+t.go:43: do_2: tick 1 of 2
+t.go:43: do_2: tick 2 of 2
+t.go:51: do_2: done
+t.go:32: do_1 child_gg.Cancel() called by parent
+t.go:34: do_1: done
+t.go:21: main error: do_1 error, interrupted: false
+t.go:22: main done
 ```
 
 #### License 
